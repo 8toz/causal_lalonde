@@ -37,7 +37,21 @@ def load_data() -> pd.DataFrame:
     psid_control[INTEGER_COLS] = psid_control[INTEGER_COLS].astype("int64")
     assert(psid_control.shape[0] == 2490)
 
-    return lalonde_original, nswre_df, cps_control, psid_control
+    cps2_control = pd.read_csv(os.path.join(OBSERVATIONAL_PATH, "cps2_controls.txt"), sep='\s+',index_col=None, header=None, names=NSWRE_COLUMNS)
+    cps2_control[INTEGER_COLS] = cps2_control[INTEGER_COLS].astype("int64")
+    assert(cps_control.shape[0] == 15992)
+    psid2_control = pd.read_csv(os.path.join(OBSERVATIONAL_PATH, "psid2_controls.txt"), sep='\s+',index_col=None, header=None, names=NSWRE_COLUMNS)
+    psid2_control[INTEGER_COLS] = psid2_control[INTEGER_COLS].astype("int64")
+    assert(psid_control.shape[0] == 2490)
+
+    cps3_control = pd.read_csv(os.path.join(OBSERVATIONAL_PATH, "cps3_controls.txt"), sep='\s+',index_col=None, header=None, names=NSWRE_COLUMNS)
+    cps3_control[INTEGER_COLS] = cps3_control[INTEGER_COLS].astype("int64")
+    assert(cps_control.shape[0] == 15992)
+    psid3_control = pd.read_csv(os.path.join(OBSERVATIONAL_PATH, "psid3_controls.txt"), sep='\s+',index_col=None, header=None, names=NSWRE_COLUMNS)
+    psid3_control[INTEGER_COLS] = psid3_control[INTEGER_COLS].astype("int64")
+    assert(psid_control.shape[0] == 2490)
+
+    return lalonde_original, nswre_df, cps_control, psid_control, cps2_control, cps3_control, psid2_control, psid3_control
 
 def extract_CD_graph(name : str) -> nx.Graph:
     """
