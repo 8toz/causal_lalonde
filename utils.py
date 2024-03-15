@@ -123,40 +123,6 @@ def probabilistic_causal_effect(combinations_dict: dict, graph: nx.Graph, treatm
 
     return df
 
-
-
-def causal_estimation(combinations_dict, graph, methods, refuter_list, treatment="treatment", outcome="re78"):
-    result_dict = {}
-    for df_key, df_value in combinations_dict.items():
-        auxiliar_df = {}
-        model = dowhy.CausalModel(data=df_value, treatment=treatment, graph=graph, outcome=outcome)
-        identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
-        auxiliar_df["backdoor"] = identified_effect.get_backdoor_variables() if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
-        auxiliar_df["frontdoor"] = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
-        auxiliar_df["instrumental_variables"] = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
-        for method in methods:
-            lalonde_estimate = model.estimate_effect(identified_effect, 
-                                                    method_name=method,
-                                                    target_units="ate",
-                                                    method_params={"weighting_scheme":"ips_weight"}
-                                                    )
-            auxiliar_df[method] = lalonde_estimate.value
-
-            for refute in refuter_list:
-                refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
-                match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
-                new_effect_value = float(match.group(1))
-                auxiliar_df[refute+method] = new_effect_value
-       
-
-        result_dict[df_key] = auxiliar_df
-
-    result_df = pd.DataFrame.from_dict(result_dict, orient='index')
-
-    #prob_estimation = probabilistic_causal_effect(combinations_dict, graph)
-    #result_df = result_df.join(prob_estimation)
-
-    return result_df
     
 def get_all_directed_paths(graph: nx.Graph) -> list:
     """
@@ -175,12 +141,18 @@ def get_all_directed_paths(graph: nx.Graph) -> list:
 
     return cleaned
 
-def indentify_effects(graph, df):
-
-    pairs = get_all_directed_paths(graph)
+def indentify_effects(graph: nx.Graph, df: pd.DataFrame, pairs=None) -> pd.DataFrame:
+    """
+    Identify the effect given a graph. 
+    If pairs is None it will iterate over all directed combinations of nodes 
+    identifying its effect. 
+    """
+    if pairs is None:
+        pairs = get_all_directed_paths(graph)
+   
     dfs = []
     for pair in pairs:
-        model = dowhy.CausalModel(data=df, treatment=pair[0], graph=graph, outcome=pair[1])
+        model = dowhy.CausalModel(data=df, graph=graph, treatment=pair[0], outcome=pair[1])
         identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
         backdoor = identified_effect.get_backdoor_variables() if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
         frontdoor = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
@@ -196,5 +168,75 @@ def indentify_effects(graph, df):
         dfs.append(effects)
 
     auxiliar_df = pd.concat(dfs, ignore_index=True)
-    return auxiliar_df
 
+    backdoor_group = auxiliar_df[~auxiliar_df["backdoor"].isna()]
+    frontdoor_group = auxiliar_df[~auxiliar_df["frontdoor"].isna()]
+    iv_group =  auxiliar_df[~auxiliar_df["instrumental_variables"].isna()]
+
+    backdoor_group = backdoor_group.dropna(axis=1)
+    frontdoor_group = frontdoor_group.dropna(axis=1)
+    iv_group = iv_group.dropna(axis=1)
+
+    return backdoor_group, frontdoor_group, iv_group
+
+
+def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refuter_list: list, treatment="treatment", outcome="re78") -> pd.DataFrame:
+    result_dict = {}
+    for df_key, df_value in combinations_dict.items():
+        auxiliar_df = {}
+        model = dowhy.CausalModel(data=df_value, treatment=treatment, graph=graph, outcome=outcome)
+        identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
+
+        auxiliar_df["treatment"] = treatment
+        auxiliar_df["outcome"] = outcome
+        for method in methods:
+            lalonde_estimate = model.estimate_effect(identified_effect, 
+                                                    method_name=method,
+                                                    # target_units="ate",
+                                                    # method_params={"weighting_scheme":"ips_weight"}
+                                                    )
+            auxiliar_df[method] = lalonde_estimate.value
+
+            for refute in refuter_list:
+                refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
+                match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
+                new_effect_value = float(match.group(1))
+                auxiliar_df[refute+method] = new_effect_value
+       
+        result_dict[df_key] = auxiliar_df
+
+    result_df = pd.DataFrame.from_dict(result_dict, orient='index')
+
+    #prob_estimation = probabilistic_causal_effect(combinations_dict, graph)
+    #result_df = result_df.join(prob_estimation)
+
+    return result_df
+
+def baseline_1999(combinations_dict: dict, methods: list, refuter_list: list, treatment="treatment", outcome="re78"):
+    result_dict = {}
+    for df_key, df_value in combinations_dict.items():
+        auxiliar_df = {}
+        model = dowhy.CausalModel(data=df_value, treatment=treatment, outcome=outcome)
+        identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
+
+        auxiliar_df["treatment"] = treatment
+        auxiliar_df["outcome"] = outcome
+        for method in methods:
+            lalonde_estimate = model.estimate_effect(identified_effect, 
+                                                    method_name=method,
+                                                    # target_units="ate",
+                                                    # method_params={"weighting_scheme":"ips_weight"}
+                                                    )
+            auxiliar_df[method] = lalonde_estimate.value
+
+            for refute in refuter_list:
+                refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
+                match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
+                new_effect_value = float(match.group(1))
+                auxiliar_df[refute+method] = new_effect_value
+       
+        result_dict[df_key] = auxiliar_df
+
+    result_df = pd.DataFrame.from_dict(result_dict, orient='index')
+
+    return result_df
