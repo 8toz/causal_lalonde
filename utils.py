@@ -123,6 +123,8 @@ def probabilistic_causal_effect(combinations_dict: dict, graph: nx.Graph, treatm
 
     return df
 
+
+
 def causal_estimation(combinations_dict, graph, methods, refuter_list, treatment="treatment", outcome="re78"):
     result_dict = {}
     for df_key, df_value in combinations_dict.items():
@@ -130,8 +132,8 @@ def causal_estimation(combinations_dict, graph, methods, refuter_list, treatment
         model = dowhy.CausalModel(data=df_value, treatment=treatment, graph=graph, outcome=outcome)
         identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
         auxiliar_df["backdoor"] = identified_effect.get_backdoor_variables() if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
-        #auxiliar_df["frontdoor"] = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
-        #auxiliar_df["instrumental_variables"] = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
+        auxiliar_df["frontdoor"] = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
+        auxiliar_df["instrumental_variables"] = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
         for method in methods:
             lalonde_estimate = model.estimate_effect(identified_effect, 
                                                     method_name=method,
@@ -151,8 +153,48 @@ def causal_estimation(combinations_dict, graph, methods, refuter_list, treatment
 
     result_df = pd.DataFrame.from_dict(result_dict, orient='index')
 
-    prob_estimation = probabilistic_causal_effect(combinations_dict, graph)
-    result_df = result_df.join(prob_estimation)
+    #prob_estimation = probabilistic_causal_effect(combinations_dict, graph)
+    #result_df = result_df.join(prob_estimation)
 
     return result_df
     
+def get_all_directed_paths(graph: nx.Graph) -> list:
+    """
+    Function to get all directed paths in a directed NetworkX graph.
+    """
+    all_paths = []
+    for start_node in graph.nodes():
+        for end_node in graph.nodes():
+            if start_node != end_node:
+                paths = list(nx.all_simple_paths(graph, source=start_node, target=end_node))
+                all_paths.extend(paths)
+    cleaned = []
+    for item in all_paths:
+        if (item[0], item[-1]) not in cleaned:
+            cleaned.append((item[0], item[-1]))
+
+    return cleaned
+
+def indentify_effects(graph, df):
+
+    pairs = get_all_directed_paths(graph)
+    dfs = []
+    for pair in pairs:
+        model = dowhy.CausalModel(data=df, treatment=pair[0], graph=graph, outcome=pair[1])
+        identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
+        backdoor = identified_effect.get_backdoor_variables() if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
+        frontdoor = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
+        instrumental_variables = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
+
+        effects = pd.DataFrame({
+            'treatment': [pair[0]],
+            'outcome': [pair[1]],
+            'backdoor': [backdoor],
+            'frontdoor': [frontdoor],
+            'instrumental_variables': [instrumental_variables]
+        })
+        dfs.append(effects)
+
+    auxiliar_df = pd.concat(dfs, ignore_index=True)
+    return auxiliar_df
+
