@@ -166,7 +166,7 @@ def indentify_effects(graph: nx.Graph, df: pd.DataFrame, pairs=None) -> pd.DataF
     for pair in pairs:
         model = dowhy.CausalModel(data=df, graph=graph, treatment=pair[0], outcome=pair[1])
         identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
-        backdoor = identified_effect.get_backdoor_variables() if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
+        backdoor = identified_effect.get_backdoor_variables() #if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
         frontdoor = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
         instrumental_variables = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
 
@@ -211,7 +211,7 @@ def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refut
 
             for refute in refuter_list:
                 refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
-                match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
+                match = re.search(r'New effect:([-+]?\d*\.?\d+)', str(refute_result))
                 new_effect_value = np.round(float(match.group(1)),2)
                 auxiliar_df[refute+method] = new_effect_value
        
