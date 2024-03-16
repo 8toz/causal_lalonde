@@ -54,11 +54,11 @@ def load_data() -> pd.DataFrame:
     return lalonde_original, nswre_df, cps_control, psid_control, cps2_control, cps3_control, psid2_control, psid3_control
 
 
-def load_combinations(nswre_df: pd.DataFrame, cps_control: pd.DataFrame, cps2_control: pd.DataFrame, cps3_control: pd.DataFrame,  psid_control: pd.DataFrame, psid2_control: pd.DataFrame, psid3_control: pd.DataFrame) -> pd.DataFrame:
+def load_combinations(df: pd.DataFrame, cps_control: pd.DataFrame, cps2_control: pd.DataFrame, cps3_control: pd.DataFrame,  psid_control: pd.DataFrame, psid2_control: pd.DataFrame, psid3_control: pd.DataFrame) -> pd.DataFrame:
     """
     We create all possible combinations of datasets with the treatment subset we have (NSWRE T=1).
     """
-    treated = nswre_df[nswre_df["treatment"]==1]
+    treated = df[df["treatment"]==1]
     nswre_cps = pd.concat([treated, cps_control], axis=0)
     nswre_cps2 = pd.concat([treated, cps2_control], axis=0)
     nswre_cps3 = pd.concat([treated, cps3_control], axis=0)
@@ -231,7 +231,7 @@ def baseline_1999(combinations_dict: dict, methods: list, refuter_list: list, tr
 
             for refute in refuter_list:
                 refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
-                match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
+                match = re.search(r'New effect:([-+]?\d*\.?\d+)', str(refute_result))
                 new_effect_value = float(match.group(1))
                 auxiliar_df[refute+method] = new_effect_value
        
