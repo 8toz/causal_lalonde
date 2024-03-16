@@ -94,7 +94,19 @@ def draw_graph(G: nx.Graph) -> None:
     nx.draw(G, with_labels=True, node_size=3500, node_color='w', edgecolors ='black', pos=pos, edge_color=colors)
     return None
 
-
+def graph_to_json(graph: nx.Graph, filename: str):
+    """ 
+    Saves a Graph in JSON format into its corresponding path
+    Parameters:
+    Graph 
+    File Name (without .json extension) 
+    """
+    data = nx.node_link_data(graph)
+    file_path = os.path.join(CAUSAL_DISCOVERY_PATH, filename + ".json")
+    with open(file_path, "w") as f:
+        json.dump(data, f)
+                
+    return "Graph saved at "+ file_path
 
 def probabilistic_causal_effect(combinations_dict: dict, graph: nx.Graph, treatment="treatment", outcome="re78") -> pd.DataFrame:
     """
@@ -200,7 +212,7 @@ def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refut
             for refute in refuter_list:
                 refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
                 match = re.search(r'New effect:-?(\d+(?:\.\d+)?)', str(refute_result))
-                new_effect_value = float(match.group(1))
+                new_effect_value = np.round(float(match.group(1)),2)
                 auxiliar_df[refute+method] = new_effect_value
        
         result_dict[df_key] = auxiliar_df
