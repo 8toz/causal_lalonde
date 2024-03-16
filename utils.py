@@ -91,7 +91,7 @@ def draw_graph(G: nx.Graph) -> None:
     """
     pos = nx.spring_layout(G, k=100, seed=42) # Seed to make it deterministic
     colors = ['red'  if (y,x) in G.edges() else 'black' for (x,y) in G.edges()]
-    nx.draw(G, with_labels=True, node_size=3500, node_color='w', edgecolors ='black', pos=pos, edge_color=colors)
+    nx.draw(G, with_labels=True, node_size=3500, font_size=10, node_color='w', edgecolors ='black', pos=pos, edge_color=colors)
     return None
 
 def graph_to_json(graph: nx.Graph, filename: str):
