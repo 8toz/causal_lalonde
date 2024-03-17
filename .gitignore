@@ -1,5 +1,5 @@
 # Tutorials folder 
-
+*.pptx
 tutorials/
 
 # Byte-compiled / optimized / DLL files
