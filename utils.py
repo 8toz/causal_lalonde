@@ -166,9 +166,9 @@ def indentify_effects(graph: nx.Graph, df: pd.DataFrame, pairs=None) -> pd.DataF
     for pair in pairs:
         model = dowhy.CausalModel(data=df, graph=graph, treatment=pair[0], outcome=pair[1])
         identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
-        backdoor = identified_effect.get_backdoor_variables() #if len(identified_effect.get_backdoor_variables()) > 0 else np.NaN
-        frontdoor = identified_effect.get_frontdoor_variables() if len(identified_effect.get_frontdoor_variables()) > 0 else np.NaN
-        instrumental_variables = identified_effect.get_instrumental_variables() if len(identified_effect.get_instrumental_variables()) > 0 else np.NaN
+        backdoor = np.NaN if identified_effect.estimands["backdoor"] is None else identified_effect.get_backdoor_variables()
+        frontdoor = np.NaN if identified_effect.estimands["frontdoor"] is None else identified_effect.get_frontdoor_variables()
+        instrumental_variables = np.NaN if identified_effect.estimands["iv"] is None else identified_effect.get_instrumental_variables()
 
         effects = pd.DataFrame({
             'treatment': [pair[0]],
@@ -181,13 +181,13 @@ def indentify_effects(graph: nx.Graph, df: pd.DataFrame, pairs=None) -> pd.DataF
 
     auxiliar_df = pd.concat(dfs, ignore_index=True)
 
-    backdoor_group = auxiliar_df[~auxiliar_df["backdoor"].isna()]
-    frontdoor_group = auxiliar_df[~auxiliar_df["frontdoor"].isna()]
-    iv_group =  auxiliar_df[~auxiliar_df["instrumental_variables"].isna()]
+    backdoor_group = auxiliar_df[["treatment", "outcome", "backdoor"]][~auxiliar_df["backdoor"].isna()]
+    frontdoor_group = auxiliar_df[["treatment", "outcome","frontdoor"]][~auxiliar_df["frontdoor"].isna()]
+    iv_group =  auxiliar_df[["treatment", "outcome","instrumental_variables"]][~auxiliar_df["instrumental_variables"].isna()]
 
-    backdoor_group = backdoor_group.dropna(axis=1)
-    frontdoor_group = frontdoor_group.dropna(axis=1)
-    iv_group = iv_group.dropna(axis=1)
+    # backdoor_group = backdoor_group.dropna(axis=1)
+    # frontdoor_group = frontdoor_group.dropna(axis=1)
+    # iv_group = iv_group.dropna(axis=1)
 
     return backdoor_group, frontdoor_group, iv_group
 
@@ -195,6 +195,7 @@ def indentify_effects(graph: nx.Graph, df: pd.DataFrame, pairs=None) -> pd.DataF
 def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refuter_list: list, treatment="treatment", outcome="re78") -> pd.DataFrame:
     result_dict = {}
     for df_key, df_value in combinations_dict.items():
+        #print(df_key)
         auxiliar_df = {}
         model = dowhy.CausalModel(data=df_value, treatment=treatment, graph=graph, outcome=outcome)
         identified_effect = model.identify_effect(proceed_when_unidentifiable=True)
@@ -202,6 +203,7 @@ def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refut
         auxiliar_df["treatment"] = treatment
         auxiliar_df["outcome"] = outcome
         for method in methods:
+            #print(method)
             lalonde_estimate = model.estimate_effect(identified_effect, 
                                                     method_name=method,
                                                     # target_units="ate",
@@ -210,10 +212,12 @@ def causal_effect(combinations_dict: dict, graph: nx.Graph, methods: list, refut
             auxiliar_df[method] = lalonde_estimate.value
 
             for refute in refuter_list:
+                #print("Refuting...")
                 refute_result =  model.refute_estimate(identified_effect, lalonde_estimate, method_name=refute)
                 match = re.search(r'New effect:([-+]?\d*\.?\d+)', str(refute_result))
-                new_effect_value = np.round(float(match.group(1)),2)
-                auxiliar_df[refute+method] = new_effect_value
+                pvalue = re.search(r'p value:([-+]?\d*\.?\d+)', str(refute_result))
+                new_effect_value = str(np.round(float(match.group(1)),2)) +" (" + str(np.round(float(pvalue.group(1)),2))+")"
+                auxiliar_df[refute+"_"+method.split("_")[-1]] = new_effect_value
        
         result_dict[df_key] = auxiliar_df
 
